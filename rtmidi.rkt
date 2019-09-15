@@ -28,9 +28,9 @@
 ;		 rtmidi-out-get-current-api
 ;		 rtmidi-out-send-message)
 
-;(define rtmidi-lib (ffi-lib "binaries/x64/rtmidi.dll" #f))
+; TODO: Adapt this to load both on Linux, OSX and Windows
 (define-ffi-definer define-rtmidi 
-					(ffi-lib "binaries/x64/rtmidi.dll" #f) 
+					(ffi-lib "librtmidi" '("5" #f))
 					#:make-c-id convention:hyphen->underscore)
 
 
@@ -43,7 +43,8 @@
 (define _RtMidiInPtr _RtMidiWrapper-pointer)
 (define _RtMidiOutPtr _RtMidiWrapper-pointer)
 
-(define _RtMidiCCallback (_fun _double _pointer _size _pointer -> _void))
+# TODO: How does this work!!??
+(define _RtMidiCCallback (_fun _double _byte _size _pointer -> _void))
 
 (define RtMidiApi
   (_enum '(RTMIDI_API_UNSPECIFIED
@@ -85,17 +86,17 @@
 (define-rtmidi rtmidi-in-set-callback (_fun _RtMidiInPtr _RtMidiCCallback _pointer -> _void))
 (define-rtmidi rtmidi-in-cancel-callback (_fun _RtMidiInPtr -> _void))
 (define-rtmidi rtmidi-in-ignore-types (_fun _RtMidiInPtr _bool _bool _bool -> _void))
-;(define-rtmidi rtmidi-in-get-message (_fun _RtMidiInPtr [msg : (_bytes o 100)] [size : (_ptr o _size)] -> _double -> (bytes->list ))
+
 (define-rtmidi rtmidi-in-get-message
-  (_fun (in-ptr msg-out) ::
+  (_fun (in-ptr) ::
         (in-ptr : _RtMidiInPtr)
-        (msg-out : (_list o _byte (length msg-out)))
+        (msg : (_bytes o 10))
         (len : (_ptr o _size))
         -> (res : _double)
-        -> (values msg-out)))
+        -> (values (bytes->list (subbytes msg 0 len)) res)))
 
 (define-rtmidi rtmidi-out-create-default (_fun -> _RtMidiOutPtr))
 (define-rtmidi rtmidi-out-create (_fun RtMidiApi _string -> _RtMidiOutPtr))
 (define-rtmidi rtmidi-out-free (_fun _RtMidiOutPtr -> _void))
 (define-rtmidi rtmidi-out-get-current-api (_fun _RtMidiPtr -> RtMidiApi))
-(define-rtmidi rtmidi-out-send-message (_fun _RtMidiOutPtr _pointer _pointer -> _int))
+(define-rtmidi rtmidi-out-send-message (_fun _RtMidiOutPtr _bytes _int -> _int))

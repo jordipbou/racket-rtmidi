@@ -1,38 +1,41 @@
 #lang racket
 
 (require ffi/unsafe
+		 ffi/unsafe/atomic
 		 ffi/unsafe/define
 		 ffi/unsafe/define/conventions)
 
-;(provide RtMidiErrorType
-;		 rtmidi-get-compiled-api
-;		 rtmidi-api-name
-;		 rtmidi-api-display-name
-;		 rtmidi-compiled-api-by-name
-;		 rtmidi-open-port
-;		 rtmidi-open-virtual-port
-;		 rtmidi-close-port
-;		 rtmidi-get-port-count
-;		 rtmidi-get-port-name
-;		 rtmidi-in-create-default
-;		 rtmidi-in-create
-;		 rtmidi-in-free
-;		 rtmidi-in-get-current-api
-;		 rtmidi-in-set-callback
-;		 rtmidi-in-cancel-callback
-;		 rtmidi-in-ignore-types
-;		 rtmidi-in-get-message
-;		 rtmidi-out-create-default
-;		 rtmidi-out-create
-;		 rtmidi-out-free
-;		 rtmidi-out-get-current-api
-;		 rtmidi-out-send-message)
+(provide RtMidiErrorType
+		 rtmidi-get-compiled-api
+		 rtmidi-api-name
+		 rtmidi-api-display-name
+		 rtmidi-compiled-api-by-name
+		 rtmidi-open-port
+		 rtmidi-open-virtual-port
+		 rtmidi-close-port
+		 rtmidi-get-port-count
+		 rtmidi-get-port-name
+		 rtmidi-in-create-default
+		 rtmidi-in-create
+		 rtmidi-in-free
+		 rtmidi-in-get-current-api
+		 rtmidi-in-set-callback
+		 rtmidi-in-dequeue
+		 rtmidi-in-cancel-callback
+		 rtmidi-in-ignore-types
+		 rtmidi-in-get-message
+		 rtmidi-out-create-default
+		 rtmidi-out-create
+		 rtmidi-out-free
+		 rtmidi-out-get-current-api
+		 rtmidi-out-send-message)
 
 ; TODO: Adapt this to load both on Linux, OSX and Windows
+(define rtmidi-lib (ffi-lib "librtmidi" '("5" #f)))
 (define-ffi-definer define-rtmidi 
-					(ffi-lib "librtmidi" '("5" #f))
+					;(ffi-lib "librtmidi" '("5" #f))
+					rtmidi-lib
 					#:make-c-id convention:hyphen->underscore)
-
 
 (define-cstruct _RtMidiWrapper ([ptr _pointer]
                                 [data _pointer]
@@ -42,9 +45,6 @@
 (define _RtMidiPtr _RtMidiWrapper-pointer)
 (define _RtMidiInPtr _RtMidiWrapper-pointer)
 (define _RtMidiOutPtr _RtMidiWrapper-pointer)
-
-# TODO: How does this work!!??
-(define _RtMidiCCallback (_fun _double _byte _size _pointer -> _void))
 
 (define RtMidiApi
   (_enum '(RTMIDI_API_UNSPECIFIED
@@ -83,7 +83,50 @@
 (define-rtmidi rtmidi-in-create (_fun RtMidiApi _string _int -> _RtMidiInPtr))
 (define-rtmidi rtmidi-in-free (_fun _RtMidiInPtr -> _void))
 (define-rtmidi rtmidi-in-get-current-api (_fun _RtMidiPtr -> RtMidiApi))
-(define-rtmidi rtmidi-in-set-callback (_fun _RtMidiInPtr _RtMidiCCallback _pointer -> _void))
+
+; MIDI In callback multi thread wrapper
+; https://gist.github.com/dchest/718858
+(define sema (make-semaphore))
+(define queue null)
+(define (enqueue thunk)
+  (set! queue (append queue (list thunk)))
+  (semaphore-post sema))
+(define (rtmidi-in-dequeue)
+  (semaphore-wait sema)
+  (start-atomic)
+  (let ([v (car queue)])
+	(set! queue (cdr queue))
+	(end-atomic)
+	v))
+
+(define _RtMidiCCallback 
+  (_fun	#:async-apply enqueue _double _bytes _size _racket -> _void))
+
+;(define-rtmidi 
+;  rtmidi-in-set-callback 
+;  (_fun _RtMidiInPtr _RtMidiCCallback _racket -> _void))
+(define real-rtmidi-in-set-callback
+  (get-ffi-obj "rtmidi_in_set_callback" rtmidi-lib
+			   (_fun _RtMidiInPtr _RtMidiCCallback _racket -> _void)))
+
+; Set a proxy between user callback and rtmidi to
+; transform midi messages, as done on rtmidi-in-get-message
+(define (rtmidi-in-set-callback midi-in-ptr callback user-data)
+  (real-rtmidi-in-set-callback 
+	midi-in-ptr 
+	(lambda (timestamp msg len user-data)
+	  (callback timestamp (bytes->list (subbytes msg 0 len)) user-data))
+	user-data))
+
+; Example of thread to run async calls in the background
+;(thread-wait
+;  (thread (lambda ()
+;            (let loop ()
+;		      (let ((thunk (dequeue)))
+;			    (thunk)
+;			    (loop))))))
+; ----------
+
 (define-rtmidi rtmidi-in-cancel-callback (_fun _RtMidiInPtr -> _void))
 (define-rtmidi rtmidi-in-ignore-types (_fun _RtMidiInPtr _bool _bool _bool -> _void))
 

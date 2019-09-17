@@ -6,17 +6,27 @@
 (define midiin0 (rtmidi-in-create-default))
 (rtmidi-open-port midiin0 0 "")
 (rtmidi-in-set-callback midiin0
-						(lambda (ts msg ud)
-						  (display msg))
+						(lambda (ts msg size ud)
+						  (log-error (format "1: ~a" (bytes->list (subbytes msg 0 size)))))
 						#f)
-
 (define midiin1 (rtmidi-in-create-default))
 (rtmidi-open-port midiin1 1 "")
 (rtmidi-in-set-callback midiin1
-						(lambda (ts msg ud)
-						  (display msg)
-						  (display ud))
+						(lambda (ts msg size ud)
+						  (log-error (format "2: ~a" (bytes->list (subbytes msg 0 size))))
+						  (log-error (format "~a" ud)))
 						'port-1)
+
+(sleep 5)
+(rtmidi-in-set-callback midiin0
+						(lambda (ts msg size ud)
+						  (log-error (format "1b: ~a" (bytes->list (subbytes msg 0 size)))))
+						#f)
+(sleep 5)
+
+
+(rtmidi-in-cancel-callback midiin1)
+(rtmidi-in-cancel-callback midiin0)
 
 ; Very basic loop
 ;(let loop ()
@@ -30,13 +40,13 @@
 ;	    (unless (equal? msg1 '()) (log-error (format "1: ~a" msg1)))
 ;	    (loop)))))
 
-(thread-wait
-  (thread 
-	(lambda ()
-	  (let loop ()
-		(let ((callback (rtmidi-in-dequeue)))
-		  (callback)
-		  (loop))))))
+;(thread-wait
+;  (thread 
+;	(lambda ()
+;	  (let loop ()
+;		(let ((callback (rtmidi-in-dequeue)))
+;		  (callback)
+;		  (loop))))))
 
 ; TODO: Esto molaría más:
 ; Pero habría que hacer que rtmidi-in-queue fuera del tipo evt

@@ -185,7 +185,7 @@
         (msg : (_bytes o 1024))
         (len : (_ptr o _size))
         -> (res : _double)
-        -> (values (subbytes msg 0 len) res)))
+        -> (list (subbytes msg 0 len) res)))
 
 ; rtmidi_c exported functions related to midi out api
 (define-rtmidi rtmidi-out-create-default (_fun -> _RtMidiOutPtr))

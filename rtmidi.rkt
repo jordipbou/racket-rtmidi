@@ -12,6 +12,8 @@
 		 rtmidi-api-name
 		 rtmidi-api-display-name
 		 rtmidi-compiled-api-by-name
+     rtmidi-list-port-names
+     rtmidi-list-all-port-names
 		 rtmidi-open-port
 		 rtmidi-open-virtual-port
 		 rtmidi-close-port
@@ -68,7 +70,7 @@
            RTMIDI_ERROR_SYSTEM_ERROR
            RTMIDI_ERROR_THREAD_ERROR)))
 
-; Utility function to help retrieve compiled apis
+; Helper function to help retrieve compiled apis
 (define (rtmidi-list-compiled-apis)
   (let ((apis-bytes (make-bytes 6 0)))
 	(rtmidi-get-compiled-api apis-bytes 6)
@@ -83,6 +85,35 @@
 (define-rtmidi rtmidi-api-name (_fun RtMidiApi -> _string))
 (define-rtmidi rtmidi-api-display-name (_fun RtMidiApi -> _string))
 (define-rtmidi rtmidi-compiled-api-by-name (_fun _string -> RtMidiApi))
+
+; Helper functions to list midi ports
+(define (rtmidi-list-port-names api [dir 'inout])
+  (let ([total-ports (rtmidi-get-port-count api)])
+    (let append-port ([l '()] [n (- total-ports 1)])
+      (if (negative? n) 
+        l 
+        (append-port 
+          (append (list (list n (rtmidi-get-port-name api n))) l) 
+          (- n 1))))))
+
+(define (rtmidi-list-all-port-names)
+  (let ([midi-in (rtmidi-in-create-default)]
+        [midi-out (rtmidi-out-create-default)])
+    (let ([insert-inout 
+           (lambda (dir) 
+             (lambda (port) 
+               (append 
+                 (list dir (car port)) 
+                 (cdr port))))])
+      (let ([ports-list
+        (append 
+          (map (insert-inout 'in) 
+               (rtmidi-list-port-names midi-in))
+          (map (insert-inout 'out) 
+               (rtmidi-list-port-names midi-out)))])
+        (rtmidi-in-free midi-in)
+        (rtmidi-out-free midi-out)
+        ports-list))))
 
 ; rtmidi_c exported functions related to generic port operations
 (define-rtmidi rtmidi-open-port (_fun _RtMidiPtr _int _string -> _void))

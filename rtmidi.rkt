@@ -87,14 +87,14 @@
 (define-rtmidi rtmidi-compiled-api-by-name (_fun _string -> RtMidiApi))
 
 ; Helper functions to list midi ports
-(define (rtmidi-list-port-names api [dir 'inout])
+(define (rtmidi-list-port-names api)
   (let ([total-ports (rtmidi-get-port-count api)])
     (let append-port ([l '()] [n (- total-ports 1)])
-      (if (negative? n) 
-        l 
+      (if (natural? n) 
         (append-port 
           (append (list (list n (rtmidi-get-port-name api n))) l) 
-          (- n 1))))))
+          (- n 1))
+        l)))) 
 
 (define (rtmidi-list-all-port-names)
   (let ([midi-in (rtmidi-in-create-default)]

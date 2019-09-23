@@ -31,7 +31,9 @@
 		 rtmidi-out-create
 		 rtmidi-out-free
 		 rtmidi-out-get-current-api
-		 rtmidi-out-send-message)
+		 rtmidi-out-send-message
+     queue
+     setted-callbacks)
 
 ; TODO: Adapt this to load both on Linux, OSX and Windows
 (define rtmidi-lib (ffi-lib "librtmidi" '("5" #f)))

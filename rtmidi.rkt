@@ -31,9 +31,7 @@
 		 rtmidi-out-create
 		 rtmidi-out-free
 		 rtmidi-out-get-current-api
-		 rtmidi-out-send-message
-     queue
-     setted-callbacks)
+		 rtmidi-out-send-message)
 
 ; TODO: Adapt this to load both on Linux, OSX and Windows
 (define rtmidi-lib (ffi-lib "librtmidi" '("5" #f)))
@@ -165,7 +163,7 @@
 ; that will be called when 
 (define _RtMidiCCallback 
   (_fun	#:async-apply enqueue 
-		_double _bytes _size _racket -> _void))
+		_double _pointer _size _racket -> _void))
 
 ; These two functions are the real rtmidi_c functions but are
 ; used internally, not exported.
@@ -187,7 +185,17 @@
 (define (rtmidi-in-set-callback midi-ptr callback user-data)
   (when (member midi-ptr setted-callbacks)
     (rtmidi-in-cancel-callback midi-ptr))
-  (rtmidi_in_set_callback midi-ptr callback user-data)
+  (rtmidi_in_set_callback 
+    midi-ptr 
+    ;callback 
+    (lambda (ts msg size udata)
+      (let ((bs (make-bytes size)))
+        (let copy-bytes ([offset 0])
+          (when (< offset size)
+            (bytes-set! bs offset (ptr-ref msg _byte offset))
+            (copy-bytes (+ offset 1))))
+        (callback ts bs size udata)))
+    user-data)
   (set! setted-callbacks (append setted-callbacks (list midi-ptr)))
   ; If this is the first callback set, start the receiver thread
   (when (= (length setted-callbacks) 1)

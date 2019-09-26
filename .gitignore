@@ -1,2 +1,5 @@
 rtmidi-build
 rtmidi-build_win32
+compiled
+doc
+scribblings/compiled

@@ -212,7 +212,7 @@
   (set! setted-callbacks (remove midi-ptr setted-callbacks))
   ; If this was the last callback, stop the receiver thread
   (when (= (length setted-callbacks) 0)
-	(kill-thread receiver-thread)))
+    (when (thread? receiver-thread) (kill-thread receiver-thread))))
 
 ; exported rtmidi_c function to ignore certain message types
 ; in registered callback for that midi api pointer
